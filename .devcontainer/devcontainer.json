@@ -1,0 +1,73 @@
+{
+  "name": "nurse-sleep-manager-devcontainer",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspace",
+  "shutdownAction": "stopCompose",
+  "remoteUser": "root",
+  "overrideCommand": false,
+  "forwardPorts": [3000, 8000, 8001, 8080],
+  "portsAttributes": {
+    "3000": {
+      "label": "App / Local API",
+      "onAutoForward": "notify"
+    },
+    "8000": {
+      "label": "DynamoDB Local",
+      "onAutoForward": "silent"
+    },
+    "8001": {
+      "label": "DynamoDB Admin",
+      "onAutoForward": "openBrowser"
+    },
+    "8080": {
+      "label": "Swagger UI",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "containerEnv": {
+    "TZ": "Asia/Tokyo",
+    "NODE_ENV": "development",
+    "AWS_REGION": "ap-northeast-1",
+    "AWS_DEFAULT_REGION": "ap-northeast-1",
+    "AWS_ACCESS_KEY_ID": "local",
+    "AWS_SECRET_ACCESS_KEY": "local",
+    "DYNAMODB_ENDPOINT": "http://dynamodb-local:8000",
+    "DYNAMODB_TABLE_NAME": "nurse-sleep-dev",
+    "LOG_LEVEL": "debug",
+    "JWT_SECRET": "local-dev-secret"
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "files.eol": "\n",
+        "typescript.tsdk": "node_modules/typescript/lib",
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "eslint.validate": [
+          "javascript",
+          "javascriptreact",
+          "typescript",
+          "typescriptreact",
+          "yaml",
+          "json"
+        ]
+      },
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "42crunch.vscode-openapi",
+        "ms-azuretools.vscode-docker",
+        "redhat.vscode-yaml",
+        "eamodio.gitlens",
+        "streetsidesoftware.code-spell-checker"
+      ]
+    }
+  },
+  "postCreateCommand": "bash -lc 'if [ -f package-lock.json ]; then npm ci; elif [ -f package.json ]; then npm install; fi'",
+  "postStartCommand": "bash -lc 'node -v && npm -v && echo Devcontainer is ready.'"
+}
