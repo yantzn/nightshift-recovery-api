@@ -1,0 +1,631 @@
+openapi: 3.0.3
+info:
+  title: Nightshift Recovery API
+  version: 1.0.0
+  description: >
+    日本の16時間夜勤看護師向けに、ルールベースで睡眠・仮眠プラン、
+    睡眠実績、回復度スコア、不足要因ラベル、改善提案を提供するAPI。
+
+servers:
+  - url: https://api.example.com
+    description: Production
+  - url: https://stg-api.example.com
+    description: Staging
+  - url: http://localhost:3000
+    description: Local development
+
+tags:
+  - name: Shifts
+    description: シフト管理
+  - name: Plans
+    description: 睡眠・仮眠プラン取得
+  - name: Logs
+    description: 睡眠実績ログ管理
+  - name: Scores
+    description: 回復度スコア・分析結果取得
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: APIの疎通確認用エンドポイント
+      security: []
+      responses:
+        "200":
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - status
+                  - timestamp
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /shifts:
+    post:
+      tags:
+        - Shifts
+      summary: シフト登録
+      operationId: createShift
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateShiftRequest"
+            examples:
+              default:
+                value:
+                  userId: user_123
+                  shiftDate: 2026-03-27
+                  startTime: 2026-03-27T16:30:00Z
+                  endTime: 2026-03-28T09:00:00Z
+                  napWindowStart: 2026-03-27T18:00:00Z
+                  napWindowEnd: 2026-03-28T03:00:00Z
+                  maxNapMinutes: 120
+      responses:
+        "201":
+          description: シフト登録成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Shift"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    get:
+      tags:
+        - Shifts
+      summary: シフト一覧取得
+      operationId: listShifts
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        "200":
+          description: シフト一覧取得成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Shift"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /shifts/{shiftId}:
+    get:
+      tags:
+        - Shifts
+      summary: シフト詳細取得
+      operationId: getShift
+      parameters:
+        - $ref: "#/components/parameters/ShiftId"
+      responses:
+        "200":
+          description: シフト詳細取得成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Shift"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /shifts/{shiftId}/plan:
+    get:
+      tags:
+        - Plans
+      summary: 睡眠・仮眠プラン取得
+      description: >
+        シフト情報だけで推奨プランと代替プランを生成します。
+        過去ログが未入力でも応答可能です。
+      operationId: getShiftPlan
+      parameters:
+        - $ref: "#/components/parameters/ShiftId"
+      responses:
+        "200":
+          description: プラン取得成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /shifts/{shiftId}/logs:
+    post:
+      tags:
+        - Logs
+      summary: 睡眠実績記録
+      operationId: createSleepLog
+      parameters:
+        - $ref: "#/components/parameters/ShiftId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSleepLogRequest"
+            examples:
+              default:
+                value:
+                  logType: during_shift_nap
+                  startTime: 2026-03-27T22:00:00Z
+                  endTime: 2026-03-27T23:30:00Z
+                  sleepinessScore: 3
+                  fatigueScore: 4
+                  sleepQualityScore: 3
+                  caffeineIntakeMg: 80
+                  interruptionCount: 1
+                  recoveryFeelingScore: 2
+      responses:
+        "201":
+          description: ログ記録成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SleepLog"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    get:
+      tags:
+        - Logs
+      summary: 睡眠実績一覧取得
+      operationId: listSleepLogs
+      parameters:
+        - $ref: "#/components/parameters/ShiftId"
+      responses:
+        "200":
+          description: 実績一覧取得成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SleepLog"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /shifts/{shiftId}/score:
+    get:
+      tags:
+        - Scores
+      summary: 回復度スコア・分析取得
+      description: >
+        入力済みログだけを用いて回復度スコアを計算し、
+        不足要因ラベルと改善提案文を返します。
+        情報不足時は isReferenceValue=true を返します。
+      operationId: getRecoveryScore
+      parameters:
+        - $ref: "#/components/parameters/ShiftId"
+      responses:
+        "200":
+          description: スコア取得成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecoveryScore"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    ShiftId:
+      name: shiftId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+
+  responses:
+    BadRequest:
+      description: リクエスト不正
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: 認証失敗
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: 認可失敗
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: リソース未検出
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: 競合
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    InternalServerError:
+      description: サーバ内部エラー
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    Shift:
+      type: object
+      required:
+        - shiftId
+        - userId
+        - shiftDate
+        - startTime
+        - endTime
+        - napWindowStart
+        - napWindowEnd
+        - maxNapMinutes
+        - createdAt
+        - updatedAt
+      properties:
+        shiftId:
+          type: string
+        userId:
+          type: string
+        shiftDate:
+          type: string
+          format: date
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        napWindowStart:
+          type: string
+          format: date-time
+        napWindowEnd:
+          type: string
+          format: date-time
+        maxNapMinutes:
+          type: integer
+          minimum: 0
+          maximum: 180
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateShiftRequest:
+      type: object
+      required:
+        - userId
+        - shiftDate
+        - startTime
+        - endTime
+        - napWindowStart
+        - napWindowEnd
+        - maxNapMinutes
+      properties:
+        userId:
+          type: string
+          minLength: 1
+        shiftDate:
+          type: string
+          format: date
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        napWindowStart:
+          type: string
+          format: date-time
+        napWindowEnd:
+          type: string
+          format: date-time
+        maxNapMinutes:
+          type: integer
+          minimum: 0
+          maximum: 180
+
+    PlanItem:
+      type: object
+      required:
+        - phase
+        - start
+        - end
+        - durationMinutes
+        - reason
+      properties:
+        phase:
+          type: string
+          example: during_shift_core_nap
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        durationMinutes:
+          type: integer
+        reason:
+          type: string
+
+    PlanResponse:
+      type: object
+      required:
+        - shiftId
+        - recommendedPlan
+        - alternativePlans
+      properties:
+        shiftId:
+          type: string
+        recommendedPlan:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanItem"
+        alternativePlans:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanItem"
+
+    SleepLog:
+      type: object
+      required:
+        - logId
+        - shiftId
+        - userId
+        - logType
+        - startTime
+        - endTime
+        - sleepinessScore
+        - fatigueScore
+        - createdAt
+        - updatedAt
+      properties:
+        logId:
+          type: string
+        shiftId:
+          type: string
+        userId:
+          type: string
+        logType:
+          type: string
+          enum:
+            - pre_shift_sleep
+            - pre_shift_nap
+            - during_shift_nap
+            - post_shift_main_sleep
+            - post_shift_recovery_sleep
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        sleepinessScore:
+          type: integer
+          minimum: 1
+          maximum: 5
+        fatigueScore:
+          type: integer
+          minimum: 1
+          maximum: 5
+        sleepQualityScore:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        caffeineIntakeMg:
+          type: integer
+          minimum: 0
+          nullable: true
+        interruptionCount:
+          type: integer
+          minimum: 0
+          nullable: true
+        recoveryFeelingScore:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateSleepLogRequest:
+      type: object
+      required:
+        - logType
+        - startTime
+        - endTime
+        - sleepinessScore
+        - fatigueScore
+      properties:
+        logType:
+          type: string
+          enum:
+            - pre_shift_sleep
+            - pre_shift_nap
+            - during_shift_nap
+            - post_shift_main_sleep
+            - post_shift_recovery_sleep
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        sleepinessScore:
+          type: integer
+          minimum: 1
+          maximum: 5
+        fatigueScore:
+          type: integer
+          minimum: 1
+          maximum: 5
+        sleepQualityScore:
+          type: integer
+          minimum: 1
+          maximum: 5
+        caffeineIntakeMg:
+          type: integer
+          minimum: 0
+        interruptionCount:
+          type: integer
+          minimum: 0
+        recoveryFeelingScore:
+          type: integer
+          minimum: 1
+          maximum: 5
+
+    RecoveryScore:
+      type: object
+      required:
+        - scoreId
+        - shiftId
+        - totalSleepMinutes
+        - recommendedSleepMinutes
+        - recoveryScore
+        - isReferenceValue
+        - deficiencyLabels
+        - improvementSuggestions
+        - calculatedAt
+      properties:
+        scoreId:
+          type: string
+        shiftId:
+          type: string
+        totalSleepMinutes:
+          type: integer
+          minimum: 0
+        recommendedSleepMinutes:
+          type: integer
+          minimum: 0
+        recoveryScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+        isReferenceValue:
+          type: boolean
+        deficiencyLabels:
+          type: array
+          items:
+            type: string
+          example:
+            - insufficient_total_sleep
+            - high_fatigue
+            - frequent_interruptions
+        improvementSuggestions:
+          type: array
+          items:
+            type: string
+          example:
+            - 夜勤前に90分以上の計画的仮眠を確保してください
+            - 仮眠前後のカフェイン摂取タイミングを見直してください
+        calculatedAt:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+            message:
+              type: string

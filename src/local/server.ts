@@ -1,22 +1,26 @@
-import { createServer } from "node:http";
+import { createApp } from "../app";
+import { ENV } from "../config/env";
+import { initSecrets } from "../config/secretsBootstrap";
+import { rootLogger } from "../utils/logger";
 
-const port = Number(process.env.PORT ?? 3000);
+const start = async (): Promise<void> => {
+  await initSecrets();
 
-const server = createServer((req, res) => {
-  const responseBody = {
-    message: "nightshift-recovery-api local server is running",
-    method: req.method,
-    url: req.url,
-    timestamp: new Date().toISOString(),
-  };
+  const app = createApp();
+  const port = ENV.port;
 
-  res.writeHead(200, {
-    "Content-Type": "application/json; charset=utf-8",
+  app.listen(port, () => {
+    rootLogger.info(
+      {
+        event: "server.started",
+        port
+      },
+      `Local API server running at http://localhost:${port}`
+    );
   });
+};
 
-  res.end(JSON.stringify(responseBody));
-});
-
-server.listen(port, () => {
-  console.log(`Local server started on port ${port}`);
+start().catch((err: unknown) => {
+  rootLogger.error({ err, event: "server.start.failed" }, "Failed to start server");
+  process.exit(1);
 });
