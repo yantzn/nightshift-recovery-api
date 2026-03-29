@@ -1,6 +1,6 @@
-import type { APIGatewayProxyResult } from "aws-lambda";
 import { z } from "zod";
 
+import type { CreateSleepLogInput, SleepLog } from "../models/types";
 import { shiftService } from "../services/shiftService";
 import { BadRequestError } from "../utils/errors";
 
@@ -13,8 +13,8 @@ const createSleepLogSchema = z
       "post_shift_main_sleep",
       "post_shift_recovery_sleep"
     ]),
-    startTime: z.string().datetime({ offset: true }),
-    endTime: z.string().datetime({ offset: true }),
+    startTime: z.iso.datetime({ offset: true }),
+    endTime: z.iso.datetime({ offset: true }),
     sleepinessScore: z.number().int().min(1).max(5),
     fatigueScore: z.number().int().min(1).max(5),
     sleepQualityScore: z.number().int().min(1).max(5).nullable().optional(),
@@ -28,14 +28,14 @@ const createSleepLogSchema = z
 
     if (!Number.isNaN(start) && !Number.isNaN(end) && start >= end) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         message: "startTime must be earlier than endTime",
         path: ["startTime"]
       });
     }
   });
 
-const parseJsonBody = (body: string | null): unknown => {
+const parseJsonBody = (body: string | null | undefined): unknown => {
   if (!body) {
     throw new BadRequestError("Request body is required");
   }
@@ -47,22 +47,12 @@ const parseJsonBody = (body: string | null): unknown => {
   }
 };
 
-const jsonResponse = <T>(statusCode: number, body: T): APIGatewayProxyResult => {
-  return {
-    statusCode,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8"
-    },
-    body: JSON.stringify(body)
-  };
-};
-
 export class LogController {
   public async createSleepLog(
     shiftId: string,
-    body: string | null,
+    body: string | null | undefined,
     authenticatedUserId: string
-  ): Promise<APIGatewayProxyResult> {
+  ): Promise<SleepLog> {
     if (!shiftId) {
       throw new BadRequestError("shiftId is required");
     }
@@ -70,25 +60,30 @@ export class LogController {
     const parsed = createSleepLogSchema.safeParse(parseJsonBody(body));
 
     if (!parsed.success) {
-      throw new BadRequestError("Sleep log payload validation failed", parsed.error.flatten());
+      throw new BadRequestError(
+        "Sleep log payload validation failed",
+        z.treeifyError(parsed.error)
+      );
     }
 
-    const log = await shiftService.createSleepLog(shiftId, parsed.data, authenticatedUserId);
-
-    return jsonResponse(201, log);
+    return shiftService.createSleepLog(
+      shiftId,
+      parsed.data as CreateSleepLogInput,
+      authenticatedUserId
+    );
   }
 
   public async listSleepLogs(
     shiftId: string,
     authenticatedUserId: string
-  ): Promise<APIGatewayProxyResult> {
+  ): Promise<{ items: SleepLog[] }> {
     if (!shiftId) {
       throw new BadRequestError("shiftId is required");
     }
 
     const items = await shiftService.listSleepLogs(shiftId, authenticatedUserId);
 
-    return jsonResponse(200, { items });
+    return { items };
   }
 }
 

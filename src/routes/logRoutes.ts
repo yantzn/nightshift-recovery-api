@@ -22,7 +22,7 @@ router.post("/:shiftId/logs", async (req, res, next) => {
       authenticatedUserId
     );
 
-    res.status(result.statusCode).type("application/json").send(result.body);
+    res.status(201).json(result);
   } catch (error) {
     next(error);
   }
@@ -33,7 +33,7 @@ router.get("/:shiftId/logs", async (req, res, next) => {
     const authenticatedUserId = requireAuthUserId(req.auth?.userId);
     const result = await logController.listSleepLogs(req.params.shiftId, authenticatedUserId);
 
-    res.status(result.statusCode).type("application/json").send(result.body);
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }

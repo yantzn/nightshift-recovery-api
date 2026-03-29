@@ -18,7 +18,7 @@ router.post("/", async (req, res, next) => {
     const authenticatedUserId = requireAuthUserId(req.auth?.userId);
     const result = await shiftController.createShift(JSON.stringify(req.body), authenticatedUserId);
 
-    res.status(result.statusCode).type("application/json").send(result.body);
+    res.status(201).json(result);
   } catch (error) {
     next(error);
   }
@@ -27,13 +27,15 @@ router.post("/", async (req, res, next) => {
 router.get("/", async (req, res, next) => {
   try {
     const authenticatedUserId = requireAuthUserId(req.auth?.userId);
-    const queryParams: Record<string, string | undefined> = {
-      userId: typeof req.query.userId === "string" ? req.query.userId : undefined
-    };
 
-    const result = await shiftController.listShifts(queryParams, authenticatedUserId);
+    const result = await shiftController.listShifts(
+      {
+        userId: typeof req.query.userId === "string" ? req.query.userId : undefined
+      },
+      authenticatedUserId
+    );
 
-    res.status(result.statusCode).type("application/json").send(result.body);
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }
@@ -44,7 +46,7 @@ router.get("/:shiftId", async (req, res, next) => {
     const authenticatedUserId = requireAuthUserId(req.auth?.userId);
     const result = await shiftController.getShift(req.params.shiftId, authenticatedUserId);
 
-    res.status(result.statusCode).type("application/json").send(result.body);
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }

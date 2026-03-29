@@ -1,6 +1,6 @@
 import { Router } from "express";
 
-import { scoreController } from "../controllers/scoreController";
+import { logController } from "../controllers/logController";
 import { UnauthorizedError } from "../utils/errors";
 
 const router = Router();
@@ -13,12 +13,27 @@ const requireAuthUserId = (userId: string | undefined): string => {
   return userId;
 };
 
-router.get("/:shiftId/score", async (req, res, next) => {
+router.post("/:shiftId/logs", async (req, res, next) => {
   try {
     const authenticatedUserId = requireAuthUserId(req.auth?.userId);
-    const result = await scoreController.getRecoveryScore(req.params.shiftId, authenticatedUserId);
+    const result = await logController.createSleepLog(
+      req.params.shiftId,
+      JSON.stringify(req.body),
+      authenticatedUserId
+    );
 
-    res.status(result.statusCode).type("application/json").send(result.body);
+    res.status(201).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/:shiftId/logs", async (req, res, next) => {
+  try {
+    const authenticatedUserId = requireAuthUserId(req.auth?.userId);
+    const result = await logController.listSleepLogs(req.params.shiftId, authenticatedUserId);
+
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }

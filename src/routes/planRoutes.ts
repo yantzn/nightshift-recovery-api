@@ -1,6 +1,6 @@
 import { Router } from "express";
 
-import { shiftController } from "../controllers/shiftController";
+import { planController } from "../controllers/planController";
 import { UnauthorizedError } from "../utils/errors";
 
 const router = Router();
@@ -13,38 +13,12 @@ const requireAuthUserId = (userId: string | undefined): string => {
   return userId;
 };
 
-router.post("/", async (req, res, next) => {
+router.get("/:shiftId/plan", async (req, res, next) => {
   try {
     const authenticatedUserId = requireAuthUserId(req.auth?.userId);
-    const result = await shiftController.createShift(JSON.stringify(req.body), authenticatedUserId);
+    const result = await planController.getPlan(req.params.shiftId, authenticatedUserId);
 
-    res.status(result.statusCode).type("application/json").send(result.body);
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.get("/", async (req, res, next) => {
-  try {
-    const authenticatedUserId = requireAuthUserId(req.auth?.userId);
-    const queryParams: Record<string, string | undefined> = {
-      userId: typeof req.query.userId === "string" ? req.query.userId : undefined
-    };
-
-    const result = await shiftController.listShifts(queryParams, authenticatedUserId);
-
-    res.status(result.statusCode).type("application/json").send(result.body);
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.get("/:shiftId", async (req, res, next) => {
-  try {
-    const authenticatedUserId = requireAuthUserId(req.auth?.userId);
-    const result = await shiftController.getShift(req.params.shiftId, authenticatedUserId);
-
-    res.status(result.statusCode).type("application/json").send(result.body);
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }
